@@ -119,17 +119,18 @@ impl Connection {
                 println!("Added {} to trusted certificates.", cert_path);
             }
             let connector = builder.build()?;
-            let stream = Box::new(TcpStream::connect(&config.socket_addr()?, handle)
-                .map_err(|e| {
-                    let res: error::Error = e.into();
-                    res
-                })
-                .and_then(move |socket| {
-                    connector.connect_async(&domain, socket).map_err(
-                        |e| e.into(),
-                    )
-                }
-            ));
+            let stream = Box::new(
+                TcpStream::connect(&config.socket_addr()?, handle)
+                    .map_err(|e| {
+                        let res: error::Error = e.into();
+                        res
+                    })
+                    .and_then(move |socket| {
+                        connector.connect_async(&domain, socket).map_err(
+                            |e| e.into(),
+                        )
+                    }),
+            );
             Ok(ConnectionFuture::Secured(config, stream))
         } else {
             Ok(ConnectionFuture::Unsecured(

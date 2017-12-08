@@ -17,7 +17,7 @@
 //! use irc::client::prelude::{IrcServer, ServerExt};
 //!
 //! # fn main() {
-//! let server = IrcServer::new("config.toml").unwrap(); 
+//! let server = IrcServer::new("config.toml").unwrap();
 //! // identify comes from `ServerExt`
 //! server.identify().unwrap();
 //! # }
@@ -26,14 +26,14 @@
 //! We can then use functions from [Server](trait.Server.html) to receive messages from the
 //! server in a blocking fashion and perform any desired actions in response. The following code
 //! performs a simple call-and-response when the bot's name is mentioned in a channel.
-//! 
+//!
 //! ```no_run
 //! # extern crate irc;
 //! # use irc::client::prelude::{IrcServer, ServerExt};
 //! use irc::client::prelude::{Server, Command};
 //!
 //! # fn main() {
-//! # let server = IrcServer::new("config.toml").unwrap(); 
+//! # let server = IrcServer::new("config.toml").unwrap();
 //! # server.identify().unwrap();
 //! server.for_each_incoming(|irc_msg| {
 //!   match irc_msg.command {
@@ -85,7 +85,7 @@ pub mod utils;
 /// use irc::client::prelude::EachIncomingExt;
 ///
 /// # fn main() {
-/// # let server = IrcServer::new("config.toml").unwrap(); 
+/// # let server = IrcServer::new("config.toml").unwrap();
 /// # server.identify().unwrap();
 /// server.stream().for_each_incoming(|irc_msg| {
 ///   match irc_msg.command {
@@ -97,10 +97,10 @@ pub mod utils;
 /// }).unwrap();
 /// # }
 /// ```
-pub trait EachIncomingExt: Stream<Item=Message, Error=error::Error> {
+pub trait EachIncomingExt: Stream<Item = Message, Error = error::Error> {
     /// Blocks on the stream, running the given function on each incoming message as they arrive.
     fn for_each_incoming<F>(self, mut f: F) -> error::Result<()>
-        where
+    where
         F: FnMut(Message) -> (),
         Self: Sized,
     {
@@ -111,7 +111,11 @@ pub trait EachIncomingExt: Stream<Item=Message, Error=error::Error> {
     }
 }
 
-impl<T> EachIncomingExt for T where T: Stream<Item=Message, Error=error::Error> {}
+impl<T> EachIncomingExt for T
+where
+    T: Stream<Item = Message, Error = error::Error>,
+{
+}
 
 /// An interface for communicating with an IRC server.
 pub trait Server {
@@ -128,7 +132,7 @@ pub trait Server {
     /// # extern crate irc;
     /// # use irc::client::prelude::*;
     /// # fn main() {
-    /// # let server = IrcServer::new("config.toml").unwrap(); 
+    /// # let server = IrcServer::new("config.toml").unwrap();
     /// server.send(Command::NICK("example".to_owned())).unwrap();
     /// server.send(Command::USER("user".to_owned(), "0".to_owned(), "name".to_owned())).unwrap();
     /// # }
@@ -153,7 +157,7 @@ pub trait Server {
     /// # extern crate irc;
     /// # use irc::client::prelude::{IrcServer, ServerExt, Server, Command};
     /// # fn main() {
-    /// # let server = IrcServer::new("config.toml").unwrap(); 
+    /// # let server = IrcServer::new("config.toml").unwrap();
     /// # server.identify().unwrap();
     /// server.for_each_incoming(|irc_msg| {
     ///   match irc_msg.command {
@@ -189,7 +193,7 @@ pub trait Server {
     /// use irc::proto::caps::Capability;
     ///
     /// # fn main() {
-    /// # let server = IrcServer::new("config.toml").unwrap(); 
+    /// # let server = IrcServer::new("config.toml").unwrap();
     /// server.send_cap_req(&[Capability::MultiPrefix]).unwrap();
     /// server.identify().unwrap();
     /// # }
@@ -203,6 +207,7 @@ pub trait Server {
 /// traditional use cases. To learn more, you can view the documentation for the
 /// [futures](https://docs.rs/futures/) crate, or the tutorials for
 /// [tokio](https://tokio.rs/docs/getting-started/futures/).
+#[derive(Debug)]
 pub struct ServerStream {
     state: Arc<ServerState>,
     stream: SplitStream<Connection>,
@@ -224,6 +229,7 @@ impl Stream for ServerStream {
 }
 
 /// Thread-safe internal state for an IRC server connection.
+#[derive(Debug)]
 struct ServerState {
     /// The configuration used with this connection.
     config: Config,
@@ -435,7 +441,10 @@ impl ServerState {
         if self.config().umodes().is_empty() {
             Ok(())
         } else {
-            self.send_mode(self.current_nickname(), &Mode::as_user_modes(self.config().umodes())?)
+            self.send_mode(
+                self.current_nickname(),
+                &Mode::as_user_modes(self.config().umodes())?,
+            )
         }
     }
 
@@ -509,7 +518,8 @@ impl ServerState {
     fn handle_mode(&self, chan: &str, modes: &[Mode<ChannelMode>]) {
         for mode in modes {
             match mode {
-                &Mode::Plus(_, Some(ref user)) | &Mode::Minus(_, Some(ref user)) => {
+                &Mode::Plus(_, Some(ref user)) |
+                &Mode::Minus(_, Some(ref user)) => {
                     if let Some(vec) = self.chanlists.lock().unwrap().get_mut(chan) {
                         if let Some(n) = vec.iter().position(|x| x.get_nickname() == user) {
                             vec[n].update_access_level(mode)
@@ -592,7 +602,7 @@ impl ServerState {
 /// server after connection. Cloning an `IrcServer` is relatively cheap, as it's equivalent to
 /// cloning a single `Arc`. This may be useful for setting up multiple threads with access to one
 /// connection.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IrcServer {
     /// The internal, thread-safe server state.
     state: Arc<ServerState>,
@@ -616,7 +626,7 @@ impl Server for IrcServer {
         ServerStream {
             state: self.state.clone(),
             stream: self.state.incoming.lock().unwrap().take().expect(
-                "Stream was already obtained once, and cannot be reobtained."
+                "Stream was already obtained once, and cannot be reobtained.",
             ),
         }
     }
@@ -665,7 +675,7 @@ impl IrcServer {
     /// # extern crate irc;
     /// # use irc::client::prelude::*;
     /// # fn main() {
-    /// let server = IrcServer::new("config.toml").unwrap(); 
+    /// let server = IrcServer::new("config.toml").unwrap();
     /// # }
     /// ```
     pub fn new<P: AsRef<Path>>(config: P) -> error::Result<IrcServer> {
@@ -689,7 +699,7 @@ impl IrcServer {
     ///   server: Some("irc.example.com".to_owned()),
     ///   .. Default::default()
     /// };
-    /// let server = IrcServer::from_config(config).unwrap(); 
+    /// let server = IrcServer::from_config(config).unwrap();
     /// # }
     /// ```
     pub fn from_config(config: Config) -> error::Result<IrcServer> {
@@ -714,7 +724,8 @@ impl IrcServer {
             let outgoing_future = sink.send_all(rx_outgoing.map_err(|_| {
                 let res: error::Error = error::ErrorKind::ChannelError.into();
                 res
-            })).map(|_| ()).map_err(|e| panic!("{}", e));
+            })).map(|_| ())
+                .map_err(|e| panic!("{}", e));
 
             // Send the stream half back to the original thread.
             tx_incoming.send(stream).unwrap();
@@ -753,7 +764,7 @@ impl IrcServer {
     /// #  .. Default::default()
     /// # };
     /// let mut reactor = Core::new().unwrap();
-    /// let future = IrcServer::new_future(reactor.handle(), &config).unwrap(); 
+    /// let future = IrcServer::new_future(reactor.handle(), &config).unwrap();
     /// // immediate connection errors (like no internet) will turn up here...
     /// let server = reactor.run(future).unwrap();
     /// // runtime errors (like disconnections and so forth) will turn up here...
@@ -764,7 +775,10 @@ impl IrcServer {
     /// # }
     /// # fn process_msg(server: &IrcServer, message: Message) -> error::Result<()> { Ok(()) }
     /// ```
-    pub fn new_future<'a>(handle: Handle, config: &'a Config) -> error::Result<IrcServerFuture<'a>> {
+    pub fn new_future<'a>(
+        handle: Handle,
+        config: &'a Config,
+    ) -> error::Result<IrcServerFuture<'a>> {
         let (tx_outgoing, rx_outgoing) = mpsc::unbounded();
 
         Ok(IrcServerFuture {
@@ -823,7 +837,9 @@ impl<'a> Future for IrcServerFuture<'a> {
 
         Ok(Async::Ready(IrcServer {
             state: Arc::new(ServerState::new(
-                stream, self.tx_outgoing.take().unwrap(), self.config.clone()
+                stream,
+                self.tx_outgoing.take().unwrap(),
+                self.config.clone(),
             )),
             view: view,
         }))
@@ -862,10 +878,13 @@ mod test {
         // We sleep here because of synchronization issues.
         // We can't guarantee that everything will have been sent by the time of this call.
         thread::sleep(Duration::from_millis(100));
-        server.log_view().sent().unwrap().iter().fold(String::new(), |mut acc, msg| {
-            acc.push_str(&msg.to_string());
-            acc
-        })
+        server.log_view().sent().unwrap().iter().fold(
+            String::new(),
+            |mut acc, msg| {
+                acc.push_str(&msg.to_string());
+                acc
+            },
+        )
     }
 
     #[test]
@@ -877,9 +896,9 @@ mod test {
             ..test_config()
         }).unwrap();
         let mut messages = String::new();
-        server.for_each_incoming(|message| {
-            messages.push_str(&message.to_string());
-        }).unwrap();
+        server
+            .for_each_incoming(|message| { messages.push_str(&message.to_string()); })
+            .unwrap();
         assert_eq!(&messages[..], exp);
     }
 
@@ -890,9 +909,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "JOIN #test\r\nJOIN #test2\r\n"
@@ -908,9 +929,11 @@ mod test {
             channels: Some(vec![format!("#test"), format!("#test2")]),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NICKSERV IDENTIFY password\r\nJOIN #test\r\n\
@@ -932,9 +955,11 @@ mod test {
             },
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "JOIN #test\r\nJOIN #test2 password\r\n"
@@ -954,9 +979,11 @@ mod test {
             should_ghost: Some(true),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NICK :test2\r\nNICKSERV GHOST test password\r\n\
@@ -978,9 +1005,11 @@ mod test {
             ghost_sequence: Some(vec![format!("RECOVER"), format!("RELEASE")]),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NICK :test2\r\nNICKSERV RECOVER test password\
@@ -999,9 +1028,11 @@ mod test {
             channels: Some(vec![format!("#test"), format!("#test2")]),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "MODE test +B\r\nJOIN #test\r\nJOIN #test2\r\n"
@@ -1015,9 +1046,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(&get_server_value(server)[..], "NICK :test2\r\n");
     }
 
@@ -1030,9 +1063,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
     }
 
     #[test]
@@ -1057,7 +1092,10 @@ mod test {
                 .send(PRIVMSG(format!("#test"), format!("Hi there!\r\nJOIN #bad")))
                 .is_ok()
         );
-        assert_eq!(&get_server_value(server)[..], "PRIVMSG #test :Hi there!\r\n");
+        assert_eq!(
+            &get_server_value(server)[..],
+            "PRIVMSG #test :Hi there!\r\n"
+        );
     }
 
     #[test]
@@ -1068,9 +1106,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(server.list_channels().unwrap(), vec!["#test".to_owned()])
     }
 
@@ -1082,9 +1122,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert!(server.send(PART(format!("#test"), None)).is_ok());
         assert!(server.list_channels().unwrap().is_empty())
     }
@@ -1097,9 +1139,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             server.list_users("#test").unwrap(),
             vec![User::new("test"), User::new("~owner"), User::new("&admin")]
@@ -1115,9 +1159,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             server.list_users("#test").unwrap(),
             vec![
@@ -1138,9 +1184,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             server.list_users("#test").unwrap(),
             vec![User::new("test"), User::new("&admin")]
@@ -1156,9 +1204,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             server.list_users("#test").unwrap(),
             vec![User::new("@test"), User::new("~owner"), User::new("&admin")]
@@ -1184,9 +1234,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert!(server.list_users("#test").is_none())
     }
 
@@ -1198,9 +1250,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NOTICE test :\u{001}FINGER :test (test)\u{001}\r\n"
@@ -1215,9 +1269,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             &format!(
@@ -1235,9 +1291,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NOTICE test :\u{001}SOURCE https://github.com/aatxe/irc\u{001}\r\n\
@@ -1253,9 +1311,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NOTICE test :\u{001}PING test\u{001}\r\n"
@@ -1270,9 +1330,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         let val = get_server_value(server);
         assert!(val.starts_with("NOTICE test :\u{001}TIME :"));
         assert!(val.ends_with("\u{001}\r\n"));
@@ -1286,9 +1348,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(
             &get_server_value(server)[..],
             "NOTICE test :\u{001}USERINFO :Testing.\u{001}\
@@ -1304,9 +1368,11 @@ mod test {
             mock_initial_value: Some(value.to_owned()),
             ..test_config()
         }).unwrap();
-        server.for_each_incoming(|message| {
-            println!("{:?}", message);
-        }).unwrap();
+        server
+            .for_each_incoming(|message| {
+                println!("{:?}", message);
+            })
+            .unwrap();
         assert_eq!(&get_server_value(server)[..], "");
     }
 }
